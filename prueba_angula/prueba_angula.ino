@@ -15,10 +15,11 @@ unsigned long tPinsGo[] = {0,0,0,0,0,0};
 unsigned long tPinsBack[] = {0,0,0,0,0,0};
 
 int active = 0;
-int pre_active = 0;
+int pre_active = -1;
 
 unsigned long t0;
 unsigned long tf;
+unsigned long prevT0 = 0;
 
 //int left = false;
 
@@ -51,12 +52,18 @@ void in_out(int pin){
       active = pin;
       if (pre_active != active){
         if(pre_active < active){ // ida
+          if (pin == 0){
+            t0 = millis();
+          }
           tPinsGo[pin] = millis();
         } else { // regreso
           tPinsBack[pin] = millis();
           if (pin == 0){
             tf = millis();
-            send_serial();
+            if (t0 != prevT0 | t0 - prevT0 > 5000){
+              send_serial();
+              prevT0 = t0;
+            }
             reset_array(tPinsGo);
             reset_array(tPinsBack);
           }
@@ -65,15 +72,19 @@ void in_out(int pin){
 //        Serial.print(pin);
 //        Serial.println("Mismo");
           if (pin == 0) {
-            t0 = millis();
-            tPinsGo[pin] = t0;
+//            t0 = millis();
+//            tPinsGo[pin] = t0;
           }
           if (pin !=0){
             tPinsBack[pin] = millis();
           }
       }
     }
-    pre_active = active;
+    if (active == 0){
+      pre_active = -1;
+    } else {
+      pre_active = active;
+    }
     prevs[pin] = !prevs[pin];
   }
 }
