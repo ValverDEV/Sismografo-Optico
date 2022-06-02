@@ -5,7 +5,19 @@ import numpy as np
 from read import read_serial
 from scipy.optimize import curve_fit
 
-# Yet another usage of MatPlotLib with animations.
+senses = {
+    0: 'Alta',
+    1: 'Media',
+    2: 'Baja'
+}
+
+grads = {
+    0: [5*i for i in range(6)],
+    1: [3*i for i in range(6)],
+    2: [1*i for i in range(6)]
+}
+
+sense = 0
 
 
 def draw_figure(canvas, figure, loc=(0, 0)):
@@ -31,11 +43,11 @@ def process_data(packet):
     y = []
     for i in range(len(goTimes)):
         if goTimes[i]:
-            y.append(i)
+            y.append(grads[sense][i])
             x.append(goTimes[i])
     for i in range(len(goTimes)):
         if backTimes[i]:
-            y.append(i)
+            y.append(grads[sense][i])
             x.append(backTimes[i])
 
     # x = [t - t0 for t in x]
@@ -62,9 +74,12 @@ def clear_graph():
 
 layout = [
     [sg.Canvas(size=(640, 480), key='-CANVAS-')],
+    [sg.Text(f'Sensibilidad: {senses[sense]}', key='-SENSE-')],
+    [sg.Button('Alta', disabled=True, key='-HIGH-'),
+     sg.Button('Media', key='-MID-'), sg.Button('Baja', key='-LOW-')],
     [sg.Text('Amplitud: '), sg.Text('', key='-AMP-')],
-    [sg.Button('Pause', key='-PAUSE-')],
-    [sg.Button('Clear'), sg.Button('Exit')]
+    [sg.Button('Pausa', key='-PAUSE-')],
+    [sg.Button('Limpiar'), sg.Button('Salir')]
 ]
 
 window = sg.Window('Sismografo', layout, finalize=True)
@@ -75,6 +90,8 @@ canvas = canvas_elem.TKCanvas
 fig = Figure()
 ax = fig.add_subplot(111)
 ax.grid()
+ax.set_xlabel('Tiempo (s)')
+ax.set_ylabel('Amplitud (°)')
 fig_agg = draw_figure(canvas, fig)
 # i = 0
 
@@ -83,24 +100,47 @@ Y = np.zeros(0)
 X_scatter = np.zeros(0)
 Y_scatter = np.zeros(0)
 
+
 pause = False
+
 
 while True:
 
     event, values = window.read(timeout=1000)
-    if event in ('Exit', None):
+    if event in ('Salir', None):
         exit()
 
-    if event == 'Clear':
+    if event == '-HIGH-':
+        sense = 0
+        window['-HIGH-'].Update(disabled=True)
+        window['-MID-'].Update(disabled=False)
+        window['-LOW-'].Update(disabled=False)
+        window['-SENSE-'].Update(f'Sensibilidad: {senses[sense]}')
+
+    if event == '-MID-':
+        sense = 1
+        window['-HIGH-'].Update(disabled=False)
+        window['-MID-'].Update(disabled=True)
+        window['-LOW-'].Update(disabled=False)
+        window['-SENSE-'].Update(f'Sensibilidad: {senses[sense]}')
+
+    if event == '-LOW-':
+        sense = 2
+        window['-HIGH-'].Update(disabled=False)
+        window['-MID-'].Update(disabled=False)
+        window['-LOW-'].Update(disabled=True)
+        window['-SENSE-'].Update(f'Sensibilidad: {senses[sense]}')
+
+    if event == 'Limpiar':
         clear_graph()
 
     if event == '-PAUSE-':
         if pause:
             pause = False
-            window['-PAUSE-'].Update('Pause')
+            window['-PAUSE-'].Update('Pausar')
         else:
             pause = True
-            window['-PAUSE-'].Update('Resume')
+            window['-PAUSE-'].Update('Resumir')
 
     data = read_serial()
     if data and not pause:
