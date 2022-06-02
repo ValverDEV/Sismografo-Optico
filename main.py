@@ -1,9 +1,12 @@
+# Definición de librerías
 import PySimpleGUI as sg
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, FigureCanvasAgg
 from matplotlib.figure import Figure
 import numpy as np
 from read import read_serial
 from scipy.optimize import curve_fit
+
+# Variables para determinar sensibilidad
 
 senses = {
     0: 'Alta',
@@ -19,6 +22,7 @@ grads = {
 
 sense = 0
 
+# Genera gráfico en interfaz gráfica
 
 def draw_figure(canvas, figure, loc=(0, 0)):
     figure_canvas_agg = FigureCanvasTkAgg(figure, canvas)
@@ -26,19 +30,24 @@ def draw_figure(canvas, figure, loc=(0, 0)):
     figure_canvas_agg.get_tk_widget().pack(side='top', fill='both', expand=1)
     return figure_canvas_agg
 
+# Función para regresión senoidal
 
 def func(x, a, f):
     return a * np.sin((x/(2*f))*2*np.pi)
 
+# Preocesamiento de los datos
 
-def process_data(packet):
-    t0, tf, goTimes, backTimes = packet.split('/')
-    t0 = int(t0)/1000
+def process_data(packet): # toma el paquete que recibe del serial
+    t0, tf, goTimes, backTimes = packet.split('/') # separa por /
+    t0 = int(t0)/1000 # convierte de milisegundos a segundos
     tf = int(tf)/1000
-    goTimes = goTimes.split(',')[:-1]
-    backTimes = backTimes.split(',')[:-1]
-    goTimes = [int(i)/1000 for i in goTimes]
+    goTimes = goTimes.split(',')[:-1] # separa valores tiempo ida y guarda en un arreglo
+    backTimes = backTimes.split(',')[:-1] # lo mismo pero para regreso
+    goTimes = [int(i)/1000 for i in goTimes] # convierte a segundos
     backTimes = [int(i)/1000 for i in backTimes]
+
+    # eliminamos los 0s
+
     x = []
     y = []
     for i in range(len(goTimes)):
@@ -50,16 +59,16 @@ def process_data(packet):
             y.append(grads[sense][i])
             x.append(backTimes[i])
 
-    # x = [t - t0 for t in x]
-    x = np.array(x)
+    x = np.array(x) # arreglo de numpy para eficiencia y operaciones avanzadas
     y = np.array(y)
 
-    freq = tf - t0
+    freq = tf - t0 # cálculo de frecuencia del semiperiodo
 
     return x, y, freq, t0, tf
 
 
-def clear_graph():
+def clear_graph(): 
+    # limpia la gráfica y los datos guardados
     global X, Y, X_scatter, Y_scatter
     X = np.zeros(0)
     Y = np.zeros(0)
@@ -72,7 +81,7 @@ def clear_graph():
     fig_agg.draw()
 
 
-layout = [
+layout = [ # elementos de la interfaz gráfica
     [sg.Canvas(size=(640, 480), key='-CANVAS-')],
     [sg.Text(f'Sensibilidad: {senses[sense]}', key='-SENSE-')],
     [sg.Button('Alta', disabled=True, key='-HIGH-'),
@@ -82,35 +91,37 @@ layout = [
     [sg.Button('Limpiar'), sg.Button('Salir')]
 ]
 
-window = sg.Window('Sismografo', layout, finalize=True)
+window = sg.Window('Sismografo', layout, finalize=True) # genera la ventana
 
-canvas_elem = window['-CANVAS-']
+canvas_elem = window['-CANVAS-'] # obtiene el canvas para la gráfica
 canvas = canvas_elem.TKCanvas
 
-fig = Figure()
+fig = Figure() # genera la gráfica de 
 ax = fig.add_subplot(111)
 ax.grid()
 ax.set_xlabel('Tiempo (s)')
 ax.set_ylabel('Amplitud (°)')
-fig_agg = draw_figure(canvas, fig)
-# i = 0
+fig_agg = draw_figure(canvas, fig) # la dibujamos en la interfaz
 
+
+# Almacen de los datos a través del tiemop
 X = np.zeros(0)
 Y = np.zeros(0)
 X_scatter = np.zeros(0)
 Y_scatter = np.zeros(0)
 
-
+# Variable para saber si estamos en pausa
 pause = False
 
-
+# Ciclo infinito
 while True:
 
-    event, values = window.read(timeout=1000)
-    if event in ('Salir', None):
-        exit()
+    event, values = window.read(timeout=1000) # Lectura de eventos en la ventana
+    if event in ('Salir', None): # si se presiona Salir o se cierra la ventana
+        exit() #salimos
 
-    if event == '-HIGH-':
+    # cambio de sensibilidad
+    if event == '-HIGH-': 
         sense = 0
         window['-HIGH-'].Update(disabled=True)
         window['-MID-'].Update(disabled=False)
@@ -132,34 +143,38 @@ while True:
         window['-SENSE-'].Update(f'Sensibilidad: {senses[sense]}')
 
     if event == 'Limpiar':
-        clear_graph()
+        clear_graph() # limpiamos la gráfica
 
-    if event == '-PAUSE-':
-        if pause:
-            pause = False
+    if event == '-PAUSE-': # si presionamos pausa/resumir
+        if pause: # si estamos en pausa
+            pause = False # resumimos
             window['-PAUSE-'].Update('Pausar')
-        else:
-            pause = True
+        else: # si no está pausado
+            pause = True # pausamos
             window['-PAUSE-'].Update('Resumir')
 
-    data = read_serial()
-    if data and not pause:
-        ax.cla()
+    data = read_serial() # lectura de datos seriales
+    if data and not pause: # si hay datos nuevos y no estamos en pausa
+        ax.cla() 
         ax.grid()
-        x, y, freq, t0, tf = process_data(data)
-        amp, f_approx = curve_fit(func, x, y, p0=[1, freq])[0]
+        x, y, freq, t0, tf = process_data(data) # procesamos los datos
+        amp, f_approx = curve_fit(func, x, y, p0=[1, freq])[0] # hacemos la regresión senoidal
         x_int = np.linspace(t0, tf, 100)
         X = np.append(X, x_int)
         Y = np.append(Y, func(x_int, amp, f_approx))
+        # guardamos los datos nuevos con los anteriores
         X_scatter = np.append(X_scatter, x)
         Y_scatter = np.append(Y_scatter, y)
+        # agregamos los datos nuevos a la gráfica
         ax.plot(X, Y)
         ax.scatter(X_scatter, Y_scatter, color='r')
-        ax.set_xlabel('Tiempo (s)')
+        ax.set_xlabel('Tiempo (s)') 
         ax.set_ylabel('Amplitud (°)')
+        # graficamos
         fig_agg.draw()
 
+        # Actualizamos la amplitud aproxmimada
         window['-AMP-'].Update(round(amp, 3))
         # i += 1
 
-windows.close()
+windows.close() # terminamos el programa
