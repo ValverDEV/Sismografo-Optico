@@ -3,6 +3,7 @@ import serial
 serialInst = serial.Serial()
 serialInst.baudrate = 9600
 serialInst.port = 'COM7'
+serialInst.timeout = 0.0000000001
 serialInst.open()
 
 

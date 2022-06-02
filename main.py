@@ -47,6 +47,19 @@ def process_data(packet):
     return x, y, freq, t0, tf
 
 
+def clear_graph():
+    global X, Y, X_scatter, Y_scatter
+    X = np.zeros(0)
+    Y = np.zeros(0)
+    X_scatter = np.zeros(0)
+    Y_scatter = np.zeros(0)
+    ax.cla()
+    ax.grid()
+    ax.set_xlabel('Tiempo (s)')
+    ax.set_ylabel('Amplitud (°)')
+    fig_agg.draw()
+
+
 layout = [
     [sg.Canvas(size=(640, 480), key='-CANVAS-')],
     [sg.Text('Amplitud: '), sg.Text('', key='-AMP-')],
@@ -79,10 +92,7 @@ while True:
         exit()
 
     if event == 'Clear':
-        X = np.zeros(0)
-        Y = np.zeros(0)
-        X_scatter = np.zeros(0)
-        Y_scatter = np.zeros(0)
+        clear_graph()
 
     if event == '-PAUSE-':
         if pause:
